@@ -1,0 +1,25 @@
+#/bin/bash
+if [ -d /usr/src/libretro/Retroarch ]; then
+    cd /usr/src/libretro/Retroarch;
+    make uninstall;
+    make clean;
+fi
+
+cd /usr/src
+rm -rf /usr/src/libretro/Retroarch
+git clone https://github.com/libretro/Retroarch libretro/Retroarch
+
+if [ -d /usr/src/libretro/Retroarch ]; then
+    cd /usr/src/libretro/Retroarch;
+    ./configure;
+    make;
+    make install;
+fi
+
+if [ -f /usr/local/bin/retroarch ]; then
+    echo "";
+    echo "Symlinking to /usr/bin/retroarch";
+    ln -s /usr/local/bin/retroarch /usr/bin/retroarch;
+fi
+
+echo "Build Complete Type retroarch To Run";
