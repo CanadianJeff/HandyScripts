@@ -7,20 +7,11 @@ timestamp() {
 }
 
 fixpackage() {
-    echo "###################";
-    echo "# Fixing $pkg ... #";
-    echo "###################";
-    echo ""
-    set -x;
+    echo "[$(timestamp)] [$count/$total] Fixing $pkg ...";
     echo "$pkg" >> /tmp/fixlist.pkg;
-    dpkg --force-all --purge "$pkg";
-    apt-get install "$pkg";
-    set +x;
-    echo ""
-    echo "############";
-    echo "# Done ... #";
-    echo "############";
-    sleep 15;
+    dpkg --force-all --purge "$pkg" 1>/dev/null;
+    pkg_deb=$(apt-cache show $pkg | awk '$1 ~ /Filename:/ {print $2}' | rev | cut -d'/' -f 1 | rev)
+    dpkg --force-all -i /var/cache/apt/archives/"$pkg_deb" 2>&1 >>/tmp/debsums.log;
 }
 
 verify() {
