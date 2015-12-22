@@ -44,8 +44,14 @@ count=1
 total=$(wc -l /tmp/verify.pkg | awk '{print $1}')
 
 while read -r pkg; do
-    verify;
+    if [[ $pkg == *":"* ]]; then
+        echo "[$(timestamp)] [$count/$total] Arch Package $pkg ...";
+        echo $pkg >> /tmp/archlist.pkg;
+    else
+        verify;
+    fi
     let count=count+1
 done < /tmp/verify.pkg
 
 echo "Done! Packages that need fixing are in /tmp/fixlist.pkg";
+echo "Arch Packages are listed in /tmp/archlist.pkg";
