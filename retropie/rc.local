@@ -1,0 +1,90 @@
+#!/bin/sh -e
+#
+# rc.local
+#
+# This script is executed at the end of each multiuser runlevel.
+# Make sure that the script will "exit 0" on success or any other
+# value on error.
+#
+# In order to enable or disable this script just change the execution
+# bits.
+#
+# By default this script does nothing.
+
+# Print the IP address
+_IP=$(hostname -I) || true
+if [ "$_IP" ]; then
+  printf "My IP address is %s\n" "$_IP"
+fi
+
+### WIIMOTE CODE
+mac="\([[:xdigit:]]\{2\}:\)\{5\}[[:xdigit:]]"
+ttl=30
+killall hcitool && sleep 5
+echo "KERNEL==\"uinput\", MODE:=\"0666\"" > /etc/udev/rules.d/wiimote.rules
+sudo service udev restart
+
+### WIIMOTE MAPPING
+echo "
+Classic.Dpad.X = ABS_X
+Classic.Dpad.Y = ABS_Y
+Classic.LStick.X = ABS_HAT0X
+Classic.LStick.Y = ABS_HAT0Y
+Classic.RStick.X = ABS_HAT1X
+Classic.RStick.Y = ABS_HAT1Y
+Classic.A = BTN_A
+Classic.B = BTN_B
+Classic.X = BTN_X
+Classic.Y = BTN_Y
+Classic.Minus = BTN_SELECT
+Classic.Plus  = BTN_START
+Classic.Home  = BTN_MODE
+Classic.L  = BTN_TL
+Classic.R  = BTN_TR
+Classic.ZL = BTN_TL2
+Classic.ZR = BTN_TR2
+Wiimote.A       = BTN_A
+Wiimote.B       = BTN_B
+Wiimote.Dpad.X      = ABS_Y
+Wiimote.Dpad.Y      = -ABS_X
+Wiimote.Minus   = BTN_SELECT
+Wiimote.Plus    = BTN_START
+Wiimote.Home    = BTN_MODE
+Wiimote.1       = BTN_X
+Wiimote.2       = BTN_Y
+" > /home/pi/wiimote.input
+
+# adding bluetooth support
+modprobe bluetooth;
+hidd --killall
+hcitool dev | grep hci >/dev/null
+if test $? -eq 0 ; then
+  aplay $begin_sound &> /dev/null &
+  echo "Bluetooth detected, starting scan with 30s timeout..."
+# adding wiimote support
+  modprobe hid-wiimote;
+# prompt user and scan for wiimotes
+  /usr/bin/fbi -once -t 7 -noverbose -a -1 /home/pi/wiimote/wiimotepair.png
+  timeout $ttl hcitool scan > /tmp/hcitool_scan
+# scrape out the detected hidd mac address from wiimote
+  awk '/Nintendo/ {print $1}' /tmp/hcitool_scan > /tmp/hidd.txt
+# for each wiimote found lets create input for it
+  while read id; do
+  echo -n "Detected (HIDD/WIIMOTE) with ID: ${id}..."
+  echo -n "Connecting to WIIMOTE: $id"
+  hidd --connect $id
+  echo -n "Mapping WIIMOTE to emulation station"
+  wminput -d -c /home/pi/wiimote.input $id &
+  echo "$id registered."
+  aplay $wiimote-found
+  echo "$id   NINTENDO WII" > /tmp/wiimote-mac.txt
+  done < /tmp/hidd.txt
+else
+  echo "Bluetooth adapter not present!"
+  sleep 3
+fi
+
+aplay $end_sound
+echo "Scan complete."
+
+exit 0
